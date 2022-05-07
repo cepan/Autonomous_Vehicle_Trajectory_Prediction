@@ -6,7 +6,7 @@ UCSD Deep Learning Class Competition Autonomous vehicle motion forecasting chall
 - Step 1: Go to [Kaggle page](https://www.kaggle.com/competitions/cse151b-spring2022/data) and downalod datset into your local/ cloud machine.
 - Step 2: Move the `test` and `train` folder into `argo` folder (since I used git ignore to prevent data from being uploaded to git, you need to download and set up data for the first time).
   - The file structure is supposed to look like this.
-  - ![sample_file_structure](readme_imgs\sample_file_structure.png)
+  - ![sample_file_structure](./readme_imgs/sample_file_structure.png)
   - Please follow this structure, or else GitHub will prevent push request because large file size.
 - Step 3: Start using this `Load_Argo2_Public.ipynb` to start model training and testing.
 
