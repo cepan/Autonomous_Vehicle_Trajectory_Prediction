@@ -72,13 +72,12 @@ def predict(model, input_tensor, target_len, device='cpu'):
 
 
 def train_model(
-        model, city, input_tensor_train, target_tensor_train, input_tensor_val, target_tensor_val,
+        model, city, input_tensor_train, target_tensor_train,
         n_epochs, target_len, batch_size,
         training_prediction='recursive',
         teacher_forcing_ratio=0.5,
         learning_rate=0.01,
         dynamic_tf=False,
-        early_stop_criteria=20,
         device='cpu'):
     '''
     train lstm encoder-decoder
@@ -106,16 +105,13 @@ def train_model(
     # initialize array of train_losses
     train_losses = []
     # initialize array of valid_losses
-    valid_losses = []
-    best_valid_loss = float('inf')
 
-    best_model = None
     optimizer = optim.RMSprop(model.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
 
     # calculate number of batch iterations
     n_batches_train = int(input_tensor_train.shape[0] / batch_size)
-    n_batches_val = int(input_tensor_val.shape[0] / batch_size)
+
 
     with trange(n_epochs) as tr:
 
@@ -208,60 +204,10 @@ def train_model(
             if dynamic_tf and teacher_forcing_ratio > 0:
                 teacher_forcing_ratio = teacher_forcing_ratio - 0.02
 
-            model.eval()
-            batch_loss_val = 0.
 
-            for b in range(n_batches_val):
-                # select data
-                input_batch = input_tensor_val[b: b + batch_size, :, :]
-                target_batch = target_tensor_val[b: b + batch_size, :, :]
-
-                input_batch = input_batch
-                target_batch = target_batch
-
-                # outputs tensor
-                outputs = torch.zeros(
-                    batch_size, target_len, input_batch.shape[2]).to(device)
-
-                # zero the gradient
-                optimizer.zero_grad()
-
-                # encoder outputs
-                encoder_output, encoder_hidden = model.encoder(input_batch)
-
-                # decoder with teacher forcing
-                # shape: (batch_size, input_size)
-                decoder_input = input_batch[:, -1, :]
-                decoder_hidden = encoder_hidden
-
-                for t in range(target_len):
-                    decoder_output, decoder_hidden = model.decoder(
-                        decoder_input.unsqueeze(1), decoder_hidden)
-                    decoder_output = model.linear(decoder_output.squeeze(1))
-                    outputs[:, t, :] = decoder_output
-                    decoder_input = decoder_output
-
-                # compute the loss
-                loss_val = criterion(outputs, target_batch)
-                batch_loss_val += loss_val.item()
-
-            batch_loss_val /= n_batches_val
-            valid_losses.append(batch_loss_val)
-
-            if batch_loss_val < best_valid_loss:
-                best_valid_loss = batch_loss_val
-                best_model = copy.deepcopy(model)
-                early_stop_counter = 0
-            else:
-                early_stop_counter += 1
-                if early_stop_counter > early_stop_criteria:
-                    print("Stopped early at epoch " +
-                          str(it) + " due to overfit")
-                    pickle.dump(best_model, open(
-                        '../models/seq2seq_lstm_' + str(model.num_layers) + '_' + city, 'wb'))
-                    break
 
             # progress bar
-            tr.set_postfix(loss="{0:.5f}".format(batch_loss_val))
+            tr.set_postfix(loss="{0:.5f}".format(batch_loss_train))
 
-    return train_losses, valid_losses
+
+    return train_losses
