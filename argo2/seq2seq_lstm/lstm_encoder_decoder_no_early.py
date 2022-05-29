@@ -32,11 +32,10 @@ class AttentionDecoder(nn.Module):
         self.output_layer = nn.Linear(hidden_size, output_size)
 
     def forward(self, x, hidden, encoder_outputs):
+        self.lstm.flatten_parameters()
         h = hidden[0]
         h = h.reshape(h.shape[1], -1).transpose(1,0)
 
-        print('h.shape:', h.shape)
-        print('x.shape:', x.shape)
         attn_weights = F.softmax(self.attn(torch.cat([x, h], 1)), dim = 1)
 
         # print(attn_weights.shape)
@@ -312,7 +311,7 @@ def train_model(
                     print("Stopped early at epoch " +
                           str(it) + " due to overfit")
                     pickle.dump(best_model, open(
-                        '../models/seq2seq_lstm_' + model_type +'_atten_' + str(model.num_layers) + '_' + city, 'wb'))
+                        '../models/seq2seq_lstm_' + model_type +'_atten_small_' + str(model.num_layers) + '_' + city, 'wb'))
                     break
 
 
@@ -324,7 +323,39 @@ def train_model(
 
             # progress bar
             tr.set_postfix(loss="{0:.5f}".format(batch_loss_train))
-            pickle.dump(best_model, open('../models/seq2seq_lstm_' + model_type +'_atten_1000_' + str(model.num_layers) + '_' + city, 'wb'))
+            pickle.dump(best_model, open('../models/seq2seq_lstm_' + model_type +'_atten_small_' + str(model.num_layers) + '_' + city, 'wb'))
 
 
     return train_losses, val_losses
+
+def predict(model, input_tensor, target_len):
+    
+    '''
+    : param input_tensor:      input data (seq_len, input_size); PyTorch tensor 
+    : param target_len:        number of target values to predict 
+    : return np_outputs:       np.array containing predicted values; prediction done recursively 
+    '''
+
+    attention = True
+    input_tensor = input_tensor.unsqueeze(0)
+    encoder_output, encoder_hidden = model.encoder(input_tensor)
+    decoder_input = input_tensor[:, -1, :]   # shape: (batch_size, input_size)
+    decoder_hidden = encoder_hidden
+    
+    outputs = torch.zeros(target_len, input_tensor.shape[2])
+    if attention:
+        for t in range(target_len): 
+            decoder_hidden = (decoder_hidden[0].squeeze(0), decoder_hidden[1].squeeze(0))
+            decoder_output, decoder_hidden = model.attn_decoder(decoder_input, decoder_hidden, encoder_output)
+            outputs[t, :] = decoder_output
+            decoder_input = decoder_output
+    else:
+        for t in range(target_len):
+            decoder_output, decoder_hidden = model.decoder(decoder_input.unsqueeze(0), decoder_hidden)
+            decoder_output = model.linear(decoder_output.squeeze(0)) 
+
+            outputs[t] = decoder_output.squeeze(0)
+            decoder_input = decoder_output
+        
+    out = outputs.detach()#.numpy()        
+    return out
