@@ -35,8 +35,12 @@ class AttentionDecoder(nn.Module):
         h = hidden[0]
         h = h.reshape(h.shape[1], -1).transpose(1,0)
 
+        print('h.shape:', h.shape)
+        print('x.shape:', x.shape)
         attn_weights = F.softmax(self.attn(torch.cat([x, h], 1)), dim = 1)
 
+        # print(attn_weights.shape)
+        # print(encoder_outputs.shape)
         attn_applied = torch.einsum("ij,ijk->ik", attn_weights, encoder_outputs)      
         
         x = torch.cat((x, attn_applied), dim = 1)
@@ -83,40 +87,6 @@ class lstm_seq2seq(nn.Module):
         self.drop_layer = nn.Dropout(p=dropout)
 
 
-def predict(model, input_tensor, target_len, device='cpu'):
-    '''
-    : param input_tensor:      input data (seq_len, input_size); PyTorch tensor 
-    : param target_len:        number of target values to predict 
-    : return np_outputs:       np.array containing predicted values; prediction done recursively 
-    '''
-    model.to(device)
-    model.eval()
-
-    # encode input_tensor
-    input_tensor = input_tensor.unsqueeze(0)
-    encoder_output, encoder_hidden = model.encoder(input_tensor)
-
-    # initialize tensor for predictions
-    outputs = torch.zeros(target_len, input_tensor.shape[2]).to(device)
-
-    # decode input_tensor
-    decoder_input = input_tensor[:, -1, :]
-    decoder_hidden = encoder_hidden
-
-    for t in range(target_len):
-        decoder_output, decoder_hidden = model.decoder(
-            decoder_input.unsqueeze(0), decoder_hidden)
-        decoder_output = model.linear(decoder_output.squeeze(0))
-
-        outputs[t] = decoder_output.squeeze(0)
-        decoder_input = decoder_output
-
-    out = outputs.detach()
-    # out = model.encoder(out)
-    # out = model.decoder(out)
-    
-    return out
-
 
 def train_model(
         model, city, input_tensor_train, target_tensor_train, input_tensor_val, target_tensor_val,
@@ -160,7 +130,7 @@ def train_model(
     val_losses = []
     best_valid_loss = float('inf')
     early_stop_counter = 0
-    
+
     # initialize optimizer
     optimizer = optim.RMSprop(model.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
@@ -354,7 +324,7 @@ def train_model(
 
             # progress bar
             tr.set_postfix(loss="{0:.5f}".format(batch_loss_train))
-
+            pickle.dump(best_model, open('../models/seq2seq_lstm_' + model_type +'_atten_1000_' + str(model.num_layers) + '_' + city, 'wb'))
 
 
     return train_losses, val_losses
